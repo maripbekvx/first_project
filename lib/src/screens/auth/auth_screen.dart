@@ -1,14 +1,31 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_app/src/common/constants/color_constants.dart';
+import 'package:flutter_app/src/common/constants/padding_constants.dart';
+import 'package:flutter_app/src/common/widgets/custom_button.dart';
+import 'package:flutter_app/src/common/widgets/custom_text_field.dart';
+import 'package:flutter_app/src/common/widgets/text_field_divider.dart';
+import 'package:flutter_app/src/router/routing_const.dart';
+import 'package:hive/hive.dart';
 
-class AuthScreen extends StatelessWidget {
+class AuthScreen extends StatefulWidget {
   const AuthScreen({Key? key}) : super(key: key);
+
+  @override
+  _AuthScreenState createState() => _AuthScreenState();
+}
+
+class _AuthScreenState extends State<AuthScreen> {
+  Dio dio = Dio();
+
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      backgroundColor: Color(0xFFF3F4F6),
       navigationBar: CupertinoNavigationBar(
-        backgroundColor: CupertinoColors.white,
         border: Border(),
         middle: Text('Авторизация'),
       ),
@@ -17,63 +34,79 @@ class AuthScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            color: CupertinoColors.white,
+            color: AppColors.white,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                CupertinoTextField(
+                CustomTextField(
+                  controller: emailController,
                   placeholder: 'Логин или почта',
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.white,
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 19, horizontal: 16),
                 ),
-                // Добавляем разделительную линию между полями
-                Container(
-                  height: 1,
-                  color: Color(0xFFE0E6ED),
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                ),
-                CupertinoTextField(
+                TextFieldDivider(),
+                CustomTextField(
+                  controller: passwordController,
                   placeholder: 'Пароль',
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.white,
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 19, horizontal: 16),
                 ),
               ],
             ),
           ),
           SizedBox(height: 32),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: CupertinoButton(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              color: Color(0xFF4631D2),
-              child: Text(
-                'Войти',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              onPressed: () {},
+            padding: AppPaddings.horizontal,
+            child: CustomButton(
+              title: 'Войти',
+              onPressed: () async {
+                
+                Box tokensBox = Hive.box('tokens');
+
+                try {
+                  Response response = await dio.post(
+                    'http://api.codeunion.kz/api/v1/auth/login',
+                    data: {
+                      'email': emailController.text,
+                      'password': passwordController.text,
+                    },
+                  );
+
+                  tokensBox.put(
+                      'access', response.data['tokens']['accessToken']);
+                  tokensBox.put(
+                      'refresh', response.data['tokens']['refreshToken']);
+
+                  print(tokensBox.get('access'));
+                  print(tokensBox.get('refresh'));
+
+                  Navigator.pushReplacementNamed(context, MainRoute);
+                } on DioError catch (e) {
+                  print(e.response!.data);
+                  showCupertinoModalPopup(
+                    context: context,
+                    builder: (context) {
+                      return CupertinoAlertDialog(
+                        title: Text('Ошибка'),
+                        content: Text('Неправильный логин или пароль!'),
+                        actions: [
+                          CupertinoButton(
+                            child: Text('ОК'),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                  throw e;
+                }
+              },
             ),
           ),
           SizedBox(height: 19),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: CupertinoButton(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              color: Color(0xFF4631D2),
-              child: Text(
-                'Зарегистрироваться',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              onPressed: () {},
+            padding: AppPaddings.horizontal,
+            child: CustomButton(
+              title: 'Зарегистрироваться',
+              onPressed: () {
+                Navigator.pushNamed(context, RegisterRoute);
+              },
             ),
           ),
         ],
