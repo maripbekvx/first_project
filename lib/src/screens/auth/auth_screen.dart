@@ -7,7 +7,8 @@ import 'package:flutter_app/src/common/widgets/custom_button.dart';
 import 'package:flutter_app/src/common/widgets/custom_text_field.dart';
 import 'package:flutter_app/src/common/widgets/text_field_divider.dart';
 import 'package:flutter_app/src/router/routing_const.dart';
-import 'package:hive/hive.dart';
+import 'package:flutter_app/src/screens/auth/bloc/log_in_bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({Key? key}) : super(key: key);
@@ -53,38 +54,17 @@ class _AuthScreenState extends State<AuthScreen> {
           SizedBox(height: 32),
           Padding(
             padding: AppPaddings.horizontal,
-            child: CustomButton(
-              title: 'Войти',
-              onPressed: () async {
-                
-                Box tokensBox = Hive.box('tokens');
-
-                try {
-                  Response response = await dio.post(
-                    'http://api.codeunion.kz/api/v1/auth/login',
-                    data: {
-                      'email': emailController.text,
-                      'password': passwordController.text,
-                    },
-                  );
-
-                  tokensBox.put(
-                      'access', response.data['tokens']['accessToken']);
-                  tokensBox.put(
-                      'refresh', response.data['tokens']['refreshToken']);
-
-                  print(tokensBox.get('access'));
-                  print(tokensBox.get('refresh'));
-
+            child: BlocConsumer<LogInBloc, LogInState>(
+              listener: (context, state) {
+                if (state is LogInLoaded) {
                   Navigator.pushReplacementNamed(context, MainRoute);
-                } on DioError catch (e) {
-                  print(e.response!.data);
+                } else if (state is LogInFailed) {
                   showCupertinoModalPopup(
                     context: context,
                     builder: (context) {
                       return CupertinoAlertDialog(
                         title: Text('Ошибка'),
-                        content: Text('Неправильный логин или пароль!'),
+                        content: Text(state.message ?? ''),
                         actions: [
                           CupertinoButton(
                             child: Text('ОК'),
@@ -94,8 +74,22 @@ class _AuthScreenState extends State<AuthScreen> {
                       );
                     },
                   );
-                  throw e;
                 }
+              },
+              builder: (context, state) {
+                return CustomButton(
+                  title: 'Войти',
+                  onPressed: state is LogInLoading
+                      ? null
+                      : () {
+                          context.read<LogInBloc>().add(
+                                LogInPressed(
+                                  email: emailController.text,
+                                  password: passwordController.text,
+                                ),
+                              );
+                        },
+                );
               },
             ),
           ),
